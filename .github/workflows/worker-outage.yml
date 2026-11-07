@@ -1,0 +1,62 @@
+name: Kind Worker Outage Integration
+on:
+  push:
+    branches: [main]
+    paths:
+      - zonerescue/worker_fault.py
+      - zonerescue/cluster_probe.py
+      - deploy/zonal-demo.yaml
+      - deploy/probe.yaml
+      - deploy/kind-config.yaml
+      - .github/workflows/worker-outage.yml
+  pull_request:
+    paths:
+      - zonerescue/worker_fault.py
+      - zonerescue/cluster_probe.py
+      - .github/workflows/worker-outage.yml
+permissions:
+  contents: read
+concurrency:
+  group: zonerescue-node-outage-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ephemeral-worker-loss:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: helm/kind-action@v1.13.0
+        with:
+          cluster_name: zonerescue
+          config: deploy/kind-config.yaml
+          wait: 120s
+      - name: Prepare emulated zones and Services
+        run: |
+          kubectl --context kind-zonerescue label node zonerescue-worker topology.kubernetes.io/zone=zone-a
+          kubectl --context kind-zonerescue label node zonerescue-worker2 topology.kubernetes.io/zone=zone-b
+          kubectl --context kind-zonerescue label node zonerescue-worker3 topology.kubernetes.io/zone=zone-c
+          kubectl --context kind-zonerescue apply -f deploy/zonal-demo.yaml
+          kubectl --context kind-zonerescue apply -f deploy/probe.yaml
+          for zone in a b c; do
+            kubectl --context kind-zonerescue -n zonerescue-lab rollout status deployment/demo-$zone --timeout=180s
+          done
+          kubectl --context kind-zonerescue -n zonerescue-lab wait --for=condition=Ready pod/zone-probe --timeout=180s
+      - name: Pause and restore one disposable Kind worker
+        run: python -m zonerescue.worker_fault
+      - name: Preserve worker-outage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zonerescue-real-worker-outage
+          path: worker-outage-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Emergency worker restore and diagnostics
+        if: failure()
+        run: |
+          docker unpause zonerescue-worker2 || true
+          kubectl --context kind-zonerescue get nodes -o wide || true
+          kubectl --context kind-zonerescue -n zonerescue-lab get pods,services,endpointslices -o wide || true
