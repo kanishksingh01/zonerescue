@@ -57,14 +57,17 @@ def main():
         raise AssertionError(f"unhealthy pre-fault baseline: {baseline}")
     started = time.monotonic()
     node_went_not_ready = False
+    checkpoints = {}
     affected = None
     restored = None
     try:
         run_command("docker", "pause", WORKER)
         wait_not_ready(timeout=155)
         node_went_not_ready = True
+        checkpoints["node_unavailable_detected_seconds"] = round(time.monotonic()-started, 3)
         await_endpoints("demo", 2, seconds=125)
         await_endpoints("demo-b-only", 0, seconds=125)
+        checkpoints["service_endpoints_reconciled_seconds"] = round(time.monotonic()-started, 3)
         affected = {"balanced": probe("demo", 12), "concentrated": probe("demo-b-only", 12)}
         if affected["balanced"]["failed"]:
             raise AssertionError(f"balanced service unavailable after zone-b node failure: {affected}")
@@ -72,12 +75,16 @@ def main():
             raise AssertionError("zone-B-only service unexpectedly served requests")
     finally:
         run_command("docker", "unpause", WORKER, check=False)
+        checkpoints["worker_unpaused_seconds"] = round(time.monotonic()-started, 3)
         wait_ready(timeout=170)
+        checkpoints["node_ready_again_seconds"] = round(time.monotonic()-started, 3)
         await_endpoints("demo", 3, seconds=120)
         await_endpoints("demo-b-only", 1, seconds=120)
+        checkpoints["service_endpoints_restored_seconds"] = round(time.monotonic()-started, 3)
         restored = {"balanced": probe("demo", 8), "concentrated": probe("demo-b-only", 8)}
     if any(v["failed"] for v in restored.values()):
         raise AssertionError(f"service did not restore: {restored}")
+    checkpoints["full_restoration_verified_seconds"] = round(time.monotonic()-started, 3)
     report = {
         "at_utc": datetime.now(timezone.utc).isoformat(),
         "failure": "Docker pause of one Kind Kubernetes worker (zone-b)",
@@ -87,6 +94,13 @@ def main():
         "after_worker_recovery": restored,
         "time_to_worker_recovery_and_probe_seconds": round(time.monotonic()-started, 3),
         "cleanup_verified": True,
+        "timing_checkpoints_from_pause_seconds": checkpoints,
+        "service_endpoint_reconciliation_lag_seconds": round(
+            checkpoints["service_endpoints_reconciled_seconds"] -
+            checkpoints["node_unavailable_detected_seconds"], 3),
+        "service_endpoint_restoration_lag_seconds": round(
+            checkpoints["service_endpoints_restored_seconds"] -
+            checkpoints["worker_unpaused_seconds"], 3),
         "scope": "ephemeral Kind node only; not a physical GKE zone outage"
     }
     print(json.dumps(report, indent=2))
