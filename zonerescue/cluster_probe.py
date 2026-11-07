@@ -22,7 +22,7 @@ def count_endpoints(service):
     doc = json.loads(kubectl("get", "endpointslices.discovery.k8s.io",
                             "-l", f"kubernetes.io/service-name={service}", "-o", "json"))
     return sum(1 for item in doc.get("items", [])
-               for endpoint in item.get("endpoints", [])
+               for endpoint in (item.get("endpoints") or [])
                if endpoint.get("conditions", {}).get("ready", True))
 
 def await_endpoints(service, count, seconds=90):
