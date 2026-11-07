@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  model-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: python -m compileall -q zonerescue tests
+      - name: Deterministic simulation tests
+        run: python -m unittest discover -s tests -v
+      - name: Compare placement outcomes
+        run: |
+          python -m zonerescue.cli --topology balanced --output balanced-report.json
+          python -m zonerescue.cli --topology concentrated --output concentrated-report.json
+          python -c 'import json; a=json.load(open("balanced-report.json")); b=json.load(open("concentrated-report.json")); assert a["availability"] > b["availability"]'
+      - name: Save synthetic reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: zonerescue-synthetic-topology-comparison
+          path: "*-report.json"
+          retention-days: 14
