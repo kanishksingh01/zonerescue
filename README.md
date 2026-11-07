@@ -1,13 +1,11 @@
 # ZoneRescue
 
-**Multi-zone resilience analysis** · Independent portfolio project · Private during development
+**Kubernetes multi-zone workload resilience experiments and deterministic placement simulations.** Independent cloud project; not affiliated with Google Cloud. Private during development.
 
-**Start here:** [Read the complete end-to-end walkthrough](docs/END-TO-END.md).
+**Start:** [Full end-to-end guide](docs/END-TO-END.md) · [Release criteria](docs/RELEASE-STATUS.md).
 
-The walkthrough shows how our placement and simulated zonal outage model works, how the experiment is evaluated, the CI evidence, what the numbers mean, and next steps toward real Kubernetes tests.
+The repository models placement and zonal failures, then tests a disposable Kind cluster with three emulated zones. The lab removes a zone-B workload, verifies remaining replicas and restores the workload. A stronger in-cluster Service routing test is under validation.
 
-**Verified:** Deterministic synthetic placement comparison and unit tests. **Not yet:** real Kubernetes or GKE zonal fault injection.
+**Current status:** Simulation and Kubernetes workload-loss lab, **not** verified GKE or physical zonal recovery. AI deferred.
 
-[Simulation CI](.github/workflows/ci.yml) · [Architecture](docs/ARCHITECTURE.md)
-
-No cloud credentials or infrastructure mutation are required for the current model.
+[Simulation CI](.github/workflows/ci.yml) · [Kind experiment](.github/workflows/kind-integration.yml) · [Architecture](docs/ARCHITECTURE.md)
