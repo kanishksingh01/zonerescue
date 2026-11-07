@@ -1,26 +1,13 @@
 # ZoneRescue
 
-**Multi-zone Kubernetes resilience engineering lab.** Independent project inspired by common cloud zonal-failure patterns; not affiliated with Google Cloud.
+**Multi-zone resilience analysis** · Independent portfolio project · Private during development
 
-**Current scope:** A deterministic, synthetic three-zone failure simulator. No cloud credentials, Kubernetes cluster access, or destructive actions.
+**Start here:** [Read the complete end-to-end walkthrough](docs/END-TO-END.md).
 
-## P0 example
+The walkthrough shows how our placement and simulated zonal outage model works, how the experiment is evaluated, the CI evidence, what the numbers mean, and next steps toward real Kubernetes tests.
 
-```bash
-python3 -m zonerescue.cli --topology balanced --failed-zone zone-b --requests 300 --seed 42
-python3 -m zonerescue.cli --topology concentrated --failed-zone zone-b --requests 300 --seed 42
-python3 -m unittest discover -s tests -v
-```
+**Verified:** Deterministic synthetic placement comparison and unit tests. **Not yet:** real Kubernetes or GKE zonal fault injection.
 
-The experiment compares balanced workload placement with concentrated placement when one zone becomes unavailable. The simulator models request routing before and after a health-probe detection threshold.
+[Simulation CI](.github/workflows/ci.yml) · [Architecture](docs/ARCHITECTURE.md)
 
-**Important:** Results are measured in request steps, not seconds. This is not a real GKE outage, Kubernetes scheduling experiment, or test of production RTO.
-
-## Milestones
-- P0: deterministic topology and zone-loss simulation, measurable output, unit tests.
-- P1: isolated Kind application with simulated zone labels and bounded failure injection.
-- P2: continuous probes, cleanup safeguards, topology and dependency checks.
-- P3: optional GKE validation, benchmark methodology, and portfolio case study.
-- Later: AI-based topology risk review, deferred.
-
-See [architecture](docs/ARCHITECTURE.md) and [P0 tracking](https://github.com/kanishksingh01/zonerescue/issues/1).
+No cloud credentials or infrastructure mutation are required for the current model.
