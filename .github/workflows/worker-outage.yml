@@ -39,11 +39,13 @@ jobs:
           kubectl --context kind-zonerescue label node zonerescue-worker2 topology.kubernetes.io/zone=zone-b
           kubectl --context kind-zonerescue label node zonerescue-worker3 topology.kubernetes.io/zone=zone-c
           kubectl --context kind-zonerescue apply -f deploy/zonal-demo.yaml
+          kubectl --context kind-zonerescue apply -f deploy/spread-demo.yaml
           kubectl --context kind-zonerescue apply -f deploy/probe.yaml
           for zone in a b c; do
             kubectl --context kind-zonerescue -n zonerescue-lab rollout status deployment/demo-$zone --timeout=180s
           done
           kubectl --context kind-zonerescue -n zonerescue-lab wait --for=condition=Ready pod/zone-probe --timeout=180s
+          kubectl --context kind-zonerescue -n zonerescue-lab rollout status deployment/demo-spread --timeout=180s
       - name: Pause and restore one disposable Kind worker
         run: python -m zonerescue.worker_fault
       - name: Preserve worker-outage evidence

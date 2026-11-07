@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timezone
 from zonerescue.cluster_probe import (CONTEXT, NAMESPACE, kubectl,
                                        count_endpoints, await_endpoints, probe)
+from zonerescue.spread_probe import verify_spread
 
 WORKER = "zonerescue-worker2"
 
@@ -52,7 +53,9 @@ def main():
         raise RuntimeError("unexpected Docker worker container name")
     await_endpoints("demo", 3)
     await_endpoints("demo-b-only", 1)
-    baseline = {"balanced": probe("demo", 8), "concentrated": probe("demo-b-only", 8)}
+    spread_initial = verify_spread()
+    baseline = {"balanced": probe("demo", 8), "concentrated": probe("demo-b-only", 8),
+                "scheduler_spread": probe("demo-spread", 8)}
     if baseline["balanced"]["failed"] or baseline["concentrated"]["failed"]:
         raise AssertionError(f"unhealthy pre-fault baseline: {baseline}")
     started = time.monotonic()
@@ -68,8 +71,12 @@ def main():
         await_endpoints("demo", 2, seconds=125)
         await_endpoints("demo-b-only", 0, seconds=125)
         checkpoints["service_endpoints_reconciled_seconds"] = round(time.monotonic()-started, 3)
-        affected = {"balanced": probe("demo", 12), "concentrated": probe("demo-b-only", 12)}
-        if affected["balanced"]["failed"]:
+        # The scheduler-spread Deployment has six replicas, two per emulated zone.
+        # Wait for dead worker endpoints to disappear before checking availability.
+        await_endpoints("demo-spread", 4, seconds=125)
+        affected = {"balanced": probe("demo", 12), "concentrated": probe("demo-b-only", 12),
+                    "scheduler_spread": probe("demo-spread", 12)}
+        if affected["balanced"]["failed"] or affected["scheduler_spread"]["failed"]:
             raise AssertionError(f"balanced service unavailable after zone-b node failure: {affected}")
         if affected["concentrated"]["successful"]:
             raise AssertionError("zone-B-only service unexpectedly served requests")
@@ -81,7 +88,9 @@ def main():
         await_endpoints("demo", 3, seconds=120)
         await_endpoints("demo-b-only", 1, seconds=120)
         checkpoints["service_endpoints_restored_seconds"] = round(time.monotonic()-started, 3)
-        restored = {"balanced": probe("demo", 8), "concentrated": probe("demo-b-only", 8)}
+        await_endpoints("demo-spread", 6, seconds=120)
+        restored = {"balanced": probe("demo", 8), "concentrated": probe("demo-b-only", 8),
+                    "scheduler_spread": probe("demo-spread", 8)}
     if any(v["failed"] for v in restored.values()):
         raise AssertionError(f"service did not restore: {restored}")
     checkpoints["full_restoration_verified_seconds"] = round(time.monotonic()-started, 3)
@@ -89,6 +98,7 @@ def main():
         "at_utc": datetime.now(timezone.utc).isoformat(),
         "failure": "Docker pause of one Kind Kubernetes worker (zone-b)",
         "baseline": baseline,
+        "scheduler_spread_initial": spread_initial,
         "kubernetes_node_not_ready_confirmed": node_went_not_ready,
         "during_worker_unavailable_after_endpoint_reconciliation": affected,
         "after_worker_recovery": restored,
