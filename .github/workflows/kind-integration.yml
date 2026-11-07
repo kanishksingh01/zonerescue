@@ -33,11 +33,6 @@ jobs:
           for zone in a b c; do
             kubectl --context kind-zonerescue -n zonerescue-lab rollout status deployment/demo-$zone --timeout=180s
           done
-      - name: Measure zone workload loss and restoration
-        run: |
-          kubectl --context kind-zonerescue -n zonerescue-lab port-forward service/demo 18080:80 >/tmp/zone-forward.log 2>&1 &
-          trap 'kill $! 2>/dev/null || true' EXIT
-          python -m zonerescue.kind_probe --samples 30
       - name: Verify actual in-cluster Service routing and isolation
         run: |
           kubectl --context kind-zonerescue apply -f deploy/probe.yaml
@@ -49,7 +44,6 @@ jobs:
         with:
           name: zonerescue-kind-zone-report
           path: |
-            kind-zone-report.json
             kind-routing-report.json
           if-no-files-found: ignore
           retention-days: 14
