@@ -1,0 +1,97 @@
+# Disposable Kind ONLY: three independent zone-specific replicas and one shared Service.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zonerescue-lab
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-a
+  namespace: zonerescue-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: zonerescue-demo, zone: zone-a}
+  template:
+    metadata:
+      labels: {app: zonerescue-demo, zone: zone-a}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        topology.kubernetes.io/zone: zone-a
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports: [{containerPort: 80}]
+          readinessProbe:
+            httpGet: {path: /, port: 80}
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 20m, memory: 24Mi}
+            limits: {cpu: 150m, memory: 80Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-b
+  namespace: zonerescue-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: zonerescue-demo, zone: zone-b}
+  template:
+    metadata:
+      labels: {app: zonerescue-demo, zone: zone-b}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        topology.kubernetes.io/zone: zone-b
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports: [{containerPort: 80}]
+          readinessProbe:
+            httpGet: {path: /, port: 80}
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 20m, memory: 24Mi}
+            limits: {cpu: 150m, memory: 80Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-c
+  namespace: zonerescue-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: zonerescue-demo, zone: zone-c}
+  template:
+    metadata:
+      labels: {app: zonerescue-demo, zone: zone-c}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        topology.kubernetes.io/zone: zone-c
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports: [{containerPort: 80}]
+          readinessProbe:
+            httpGet: {path: /, port: 80}
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 20m, memory: 24Mi}
+            limits: {cpu: 150m, memory: 80Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo
+  namespace: zonerescue-lab
+spec:
+  type: ClusterIP
+  selector: {app: zonerescue-demo}
+  ports:
+    - {name: http, port: 80, targetPort: 80}
