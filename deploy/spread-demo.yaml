@@ -1,0 +1,57 @@
+# Disposable Kind only. A SINGLE Deployment with Kubernetes-native topology
+# spread constraints; no individual zone nodeSelectors or manually pinned Pods.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-spread
+  namespace: zonerescue-lab
+spec:
+  replicas: 6
+  selector:
+    matchLabels:
+      app: zonerescue-spread
+  template:
+    metadata:
+      labels:
+        app: zonerescue-spread
+    spec:
+      automountServiceAccountToken: false
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          minDomains: 3
+          labelSelector:
+            matchLabels:
+              app: zonerescue-spread
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 2
+          resources:
+            requests:
+              cpu: 20m
+              memory: 24Mi
+            limits:
+              cpu: 150m
+              memory: 80Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-spread
+  namespace: zonerescue-lab
+spec:
+  type: ClusterIP
+  selector:
+    app: zonerescue-spread
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80

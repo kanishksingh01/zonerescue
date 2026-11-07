@@ -30,6 +30,7 @@ jobs:
       - name: Deploy zonal demo workloads
         run: |
           kubectl --context kind-zonerescue apply -f deploy/zonal-demo.yaml
+          kubectl --context kind-zonerescue apply -f deploy/spread-demo.yaml
           for zone in a b c; do
             kubectl --context kind-zonerescue -n zonerescue-lab rollout status deployment/demo-$zone --timeout=180s
           done
@@ -38,6 +39,7 @@ jobs:
           kubectl --context kind-zonerescue apply -f deploy/probe.yaml
           kubectl --context kind-zonerescue -n zonerescue-lab wait --for=condition=Ready pod/zone-probe --timeout=180s
           python -m zonerescue.cluster_probe
+          python -m zonerescue.spread_probe
       - name: Save report
         if: always()
         uses: actions/upload-artifact@v4
@@ -45,6 +47,7 @@ jobs:
           name: zonerescue-kind-zone-report
           path: |
             kind-routing-report.json
+            spread-placement-report.json
           if-no-files-found: ignore
           retention-days: 14
       - name: Diagnostics on error
