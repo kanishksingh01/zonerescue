@@ -15,6 +15,9 @@ In one successful in-cluster test:
 
 **Proof:** [Kind in-cluster routing experiment](https://github.com/kanishksingh01/zonerescue/actions/runs/42424288207).
 
+## Genuine Kind worker interruption (stronger follow-up)
+[Successful worker-outage CI run](https://github.com/kanishksingh01/zonerescue/actions/runs/42425928204): a temporary Kind worker assigned to emulated zone B was paused until Kubernetes marked it NotReady and reconciled Service endpoints. The balanced Service served 12/12 requests through zones A and C; the zone-B-only Service served 0/12. Following worker unpause, both Services passed 8/8 requests. Outage/restoration experiment window was ~74.45 seconds; it is not a cloud GKE zone-outage RTO. [Technical lab guide](WORKER-OUTAGE.md).
+
 ## Engineering decisions
 - Hardcode the disposable Kind context and namespace for fault actions.
 - Use EndpointSlice readiness rather than mistaking a port-forwarded Pod for a load-balanced Service.
@@ -22,7 +25,7 @@ In one successful in-cluster test:
 - Keep synthetic simulation recovery steps separate from wall-clock Kind observations.
 
 ## Important limitations
-This simulates **zone-specific workload loss**, not a physical network partition or cloud zone outage. The time reported includes endpoint restoration and verification probes; it is not a guaranteed production RTO. No GKE credential or paid resource has been used.
+The earlier experiment simulates **zone-specific workload loss**; the newer workflow pauses a real Kind worker. Neither is a physical GKE zone outage, full network partition or stateful failover. The time reported includes endpoint restoration and verification probes; it is not a guaranteed production RTO. No GKE credential or paid resource has been used.
 
 ## What would make this complete
-Test actual isolated worker/network failure, topology spread constraints, stateful dependencies and repeated measured failover under cleanup safeguards; validate optional GKE behavior only with approved cost limits. See [release gates](RELEASE-STATUS.md) and [full walkthrough](END-TO-END.md).
+Expand the proven isolated worker outage with network-partition and topology-spread tests, stateful dependencies and repeated measured failover under cleanup safeguards; validate optional GKE behavior only with approved cost limits. See [release gates](RELEASE-STATUS.md) and [full walkthrough](END-TO-END.md).

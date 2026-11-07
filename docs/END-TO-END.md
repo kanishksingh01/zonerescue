@@ -1,12 +1,12 @@
 # ZoneRescue — End-to-end walkthrough
 
-> **Status:** Reproducible *simulation only*. No live Kubernetes zonal fault injection yet. Independent, Google Cloud-aligned portfolio project; not affiliated with Google.
+> **Status:** Deterministic simulation plus a real disposable Kind worker-outage demonstration. No cloud/GKE zonal fault injection. Independent, Google Cloud-aligned portfolio project; not affiliated with Google.
 
 ## 1. The problem
 
 Multiple replicas do not guarantee zone resilience if they all live in one failure domain. And even a well-spread application may temporarily route traffic to failed endpoints until health detection catches up.
 
-**What we built:** A deterministic model that compares two placement choices when one simulated zone disappears.
+**What we built:** A deterministic placement model, an actual Kubernetes three-worker placement lab, and a controlled Kind worker-outage test with real ClusterIP Service routing.
 
 ## 2. How the current simulation works
 
@@ -43,6 +43,10 @@ The failure-detection period is measured in **number of requests**, not elapsed 
 
 Expected comparison: balanced placement can retain healthy replicas in zones A and C, while an all-B placement has no surviving replicas. Exact percentages depend on the configured seed and detection steps; they are **not** production availability targets.
 
+## Live Kubernetes worker-outage experiment
+
+The stronger [Kind worker interruption workflow](https://github.com/kanishksingh01/zonerescue/actions/runs/42425928204) assigns three disposable workers emulated zones A/B/C, pauses the zone-B worker's actual Docker container and verifies Kubernetes marks it NotReady. After EndpointSlice reconciliation, a client Pod sends real HTTP traffic to two ClusterIP Services: the balanced Service (zones A/B/C) handles 12/12 successfully, while the zone-B-only Service handles 0/12; following node unpause both succeed 8/8. This is **real worker interruption inside Kind**, not a GKE zone failure. See [technical guide](WORKER-OUTAGE.md).
+
 ## 4. Reproduce or review automatically
 
 - [CI model tests and comparison](../.github/workflows/ci.yml)
@@ -69,10 +73,9 @@ CI saves `balanced-report.json` and `concentrated-report.json` as synthetic benc
 
 ## 6. What remains
 
-- Deploy actual sample services across labeled nodes in isolated Kind.
-- Verify topology spread constraints and zone-specific endpoint selection in the Kubernetes API.
-- Inject bounded pod/network failures with deterministic cleanup and continuous HTTP probing.
-- Report real wall-clock detection/recovery times and compare spread strategies.
+- Extend the now-tested worker interruption with actual network partition tests and repeated measurements across changing loads.
+- Validate topology spread constraints and stateful dependencies in Kubernetes.
+- Independently measure time to recover end-user SLO rather than only a worker readiness-and-probe window.
 - Optionally validate on GKE after cost and blast-radius limits are established.
 
-The current success demonstrates correct *simulation behavior*, not an actual GKE multi-zone recovery. See [P0 issue](https://github.com/kanishksingh01/zonerescue/issues/1) and [blueprint](https://github.com/kanishksingh01/zonerescue/issues/6).
+The successful Kind runs demonstrate real Kubernetes Service routing and isolated worker-failure survival after endpoint reconciliation, **not** a GKE multi-zone recovery. See [P0 issue](https://github.com/kanishksingh01/zonerescue/issues/1) and [blueprint](https://github.com/kanishksingh01/zonerescue/issues/6).
