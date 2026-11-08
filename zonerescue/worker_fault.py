@@ -4,6 +4,7 @@ Scope is hardcoded to temporary CI cluster kind-zonerescue only. The worker
 container is always unpaused in finally; no GKE/cloud APIs are used.
 """
 import json
+import threading
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -12,6 +13,31 @@ from zonerescue.cluster_probe import (CONTEXT, NAMESPACE, kubectl,
 from zonerescue.spread_probe import verify_spread
 
 WORKER = "zonerescue-worker2"
+
+def sample_service_until_stopped(stop, observations, started):
+    """Observe ClusterIP availability throughout node-failure transition."""
+    while not stop.is_set():
+        at = round(time.monotonic() - started, 3)
+        try:
+            # Probe from the existing in-cluster Pod through Kubernetes Service.
+            sample = probe("demo-spread", 1)
+            observations.append({"seconds_from_pause_start": at,
+                                 "ok": sample["successful"] == 1})
+        except (RuntimeError, subprocess.TimeoutExpired):
+            observations.append({"seconds_from_pause_start": at, "ok": False})
+        stop.wait(1)
+
+def summarize_continuous(samples):
+    if not samples:
+        raise ValueError("no continuous probes were collected")
+    total = len(samples)
+    failed = sum(1 for sample in samples if not sample["ok"])
+    return {"samples": total, "successful": total - failed,
+            "failed": failed, "sampled_availability": round((total-failed)/total, 4),
+            "first_failure_at_seconds": next(
+                (sample["seconds_from_pause_start"] for sample in samples
+                 if not sample["ok"]), None),
+            "unit": "individual in-cluster Service HTTP probes"}
 
 def run_command(*cmd, check=True, timeout=15):
     proc = subprocess.run(cmd, capture_output=True, text=True,
@@ -59,6 +85,11 @@ def main():
     if baseline["balanced"]["failed"] or baseline["concentrated"]["failed"]:
         raise AssertionError(f"unhealthy pre-fault baseline: {baseline}")
     started = time.monotonic()
+    stop_probes = threading.Event()
+    continuous = []
+    sampler = threading.Thread(target=sample_service_until_stopped,
+                               args=(stop_probes, continuous, started), daemon=True)
+    sampler.start()
     node_went_not_ready = False
     checkpoints = {}
     affected = None
@@ -94,6 +125,8 @@ def main():
     if any(v["failed"] for v in restored.values()):
         raise AssertionError(f"service did not restore: {restored}")
     checkpoints["full_restoration_verified_seconds"] = round(time.monotonic()-started, 3)
+    stop_probes.set()
+    sampler.join(timeout=12)
     report = {
         "at_utc": datetime.now(timezone.utc).isoformat(),
         "failure": "Docker pause of one Kind Kubernetes worker (zone-b)",
@@ -104,6 +137,8 @@ def main():
         "after_worker_recovery": restored,
         "time_to_worker_recovery_and_probe_seconds": round(time.monotonic()-started, 3),
         "cleanup_verified": True,
+        "continuous_scheduler_spread_service": summarize_continuous(continuous),
+        "continuous_probe_observations": continuous,
         "timing_checkpoints_from_pause_seconds": checkpoints,
         "service_endpoint_reconciliation_lag_seconds": round(
             checkpoints["service_endpoints_reconciled_seconds"] -
