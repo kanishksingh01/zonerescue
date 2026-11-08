@@ -1,20 +1,20 @@
-# ZoneRescue — Delivery and release gates
+# ZoneRescue — Release status and evidence
 
-## Implemented
-- Seeded three-zone topology simulation and unit-tested placement comparisons.
-- Real disposable Kind cluster with three emulated, labeled zones, a Deployment in each, and explicit restoration of zone-B workload after a bounded failure.
-- Earlier port-forward-only service test deprecated: it pinned a Pod and could not establish actual ClusterIP availability.
-- In-cluster ClusterIP routing and concentrated-vs-balanced Service comparison **passed CI**.
-- Actual disposable zone-B worker pause, Kubernetes Ready non-True status and EndpointSlice failover were verified; balanced Service succeeded during the outage; concentrated Service failed; both recovered.
+## Lab-V1 acceptance
+- [x] Deterministic multi-zone routing simulation
+- [x] Three emulated Kind worker zones with actual `topology.kubernetes.io/zone` labels
+- [x] Native scheduler topology-spread constrained single Deployment (six replicas; two per zone)
+- [x] Verified real in-cluster ClusterIP Service requests to balanced vs concentrated placements
+- [x] Real disposable worker pause, Node NotReady observation and EndpointSlice failover
+- [x] Balanced Service survived endpoint-converged failure; concentrated zone-only Service failed
+- [x] Worker unpause and Service restoration confirmed by real HTTP probes
+- [x] Timestamped failure, endpoint-convergence and recovery checkpoints
+- [x] New continuous HTTP probe samples across worker failure and recovery
 
-## Still required before claiming completion
-- Repeat verified worker-failure CI under varying workloads and add genuine network partition testing rather than only a paused local Kind worker.
-- Measure real wall-clock availability, loss, recovery and cleanup across repeated trials, with clear baselines.
-- Test topology spread constraints and zone-dependent storage/data dependencies.
-- Optional GKE deployment requires an explicit cost boundary and nonproduction credentials.
+## CI evidence
+[Scheduler and service placement integration](https://github.com/kanishksingh01/zonerescue/actions/runs/42427776661), [worker outage and continuous probing](https://github.com/kanishksingh01/zonerescue/actions/runs/42427776481) passed. These are emulated zone labels in local Kind, not independent physical failure domains.
 
-## Verified worker-failure experiment
-[Worker outage and Service restoration report](https://github.com/kanishksingh01/zonerescue/actions/runs/42425928204): Kubernetes worker NotReady; balanced Service 12/12 successful and zone-B-only Service 0/12 during outage; after unpause both 8/8 successful; 74.45 s entire test window. Synthetic emulated zone, not GKE.
+## Remaining before production consideration
+Multiple statistically supported traffic loads, a genuine network partition scenario, external rather than exec-driven availability probes, replicated storage/data-dependency scenarios and explicit GKE cost/nonproduction permission boundaries. No cloud zone is ever shut down.
 
-## Current release classification
-**Experimental Kubernetes workload-zone resilience lab**, not a verified GKE zonal recovery system. See [end-to-end walkthrough](END-TO-END.md).
+**Classification: experimental Kind zonal resilience lab; not verified GKE multi-zone disaster recovery.** [Walkthrough](END-TO-END.md).
