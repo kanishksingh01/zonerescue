@@ -9,10 +9,10 @@
 - [x] Balanced Service survived endpoint-converged failure; concentrated zone-only Service failed
 - [x] Worker unpause and Service restoration confirmed by real HTTP probes
 - [x] Timestamped failure, endpoint-convergence and recovery checkpoints
-- [x] New continuous HTTP probe samples across worker failure and recovery
+- [x] New continuous HTTP probe samples across worker failure and recovery — **observed a transient availability dip**, not zero downtime
 
 ## CI evidence
-[Scheduler and service placement integration](https://github.com/kanishksingh01/zonerescue/actions/runs/42427776661), [worker outage and continuous probing](https://github.com/kanishksingh01/zonerescue/actions/runs/42427776481) passed. These are emulated zone labels in local Kind, not independent physical failure domains.
+[Scheduler and service placement integration](https://github.com/kanishksingh01/zonerescue/actions/runs/42427776661), [worker outage and continuous probing](https://github.com/kanishksingh01/zonerescue/actions/runs/42427776481) passed. The continuous service probe recorded **42/52 successful and 10/52 failed HTTP checks (80.77% sampled availability)**, despite the post-convergence endpoint probe succeeding. This is valuable evidence that surviving replicas alone do not guarantee uninterrupted availability during EndpointSlice convergence. These are emulated zone labels in local Kind, not independent physical failure domains.
 
 ## Remaining before production consideration
 Multiple statistically supported traffic loads, a genuine network partition scenario, external rather than exec-driven availability probes, replicated storage/data-dependency scenarios and explicit GKE cost/nonproduction permission boundaries. No cloud zone is ever shut down.
