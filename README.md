@@ -10,6 +10,9 @@ The repository models placement and zonal failures, then tests a disposable Kind
 
 **Worker interruption evidence:** [Kind zone-B worker NotReady, balanced Service 12/12, single-zone Service 0/12, both restored](https://github.com/kanishksingh01/zonerescue/actions/runs/42425928204). Entire test window 74.45 seconds; not GKE RTO.
 
+
+**Continuous availability finding:** [Latest disposable worker outage](https://github.com/kanishksingh01/zonerescue/actions/runs/42427776481) recorded 42/52 successful HTTP probes (80.77%) during the outage transition. After EndpointSlice convergence, the balanced Service recovered; this is **not** uninterrupted availability. [Native six-replica topology-spread test](https://github.com/kanishksingh01/zonerescue/actions/runs/42426890690) also passed.
+
 **Current status:** Simulation and Kubernetes workload-loss lab, **not** verified GKE or physical zonal recovery. AI deferred.
 
 [Simulation CI](.github/workflows/ci.yml) · [Kind experiment](.github/workflows/kind-integration.yml) · [Architecture](docs/ARCHITECTURE.md)
